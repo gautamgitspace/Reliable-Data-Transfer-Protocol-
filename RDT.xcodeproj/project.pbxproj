@@ -7,7 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		C7D98A931C9D1C18000DA74D /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C7D98A921C9D1C18000DA74D /* main.cpp */; };
+		C7D98A9E1C9D1C2E000DA74D /* abt.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C7D98A9A1C9D1C2E000DA74D /* abt.cpp */; };
+		C7D98A9F1C9D1C2E000DA74D /* gbn.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C7D98A9B1C9D1C2E000DA74D /* gbn.cpp */; };
+		C7D98AA01C9D1C2E000DA74D /* simulator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C7D98A9C1C9D1C2E000DA74D /* simulator.cpp */; };
+		C7D98AA11C9D1C2E000DA74D /* sr.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C7D98A9D1C9D1C2E000DA74D /* sr.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -24,7 +27,11 @@
 
 /* Begin PBXFileReference section */
 		C7D98A8F1C9D1C18000DA74D /* RDT */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = RDT; sourceTree = BUILT_PRODUCTS_DIR; };
-		C7D98A921C9D1C18000DA74D /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
+		C7D98A991C9D1C2E000DA74D /* simulator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = simulator.h; path = ../../agautam2/include/simulator.h; sourceTree = "<group>"; };
+		C7D98A9A1C9D1C2E000DA74D /* abt.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = abt.cpp; path = ../../agautam2/src/abt.cpp; sourceTree = "<group>"; };
+		C7D98A9B1C9D1C2E000DA74D /* gbn.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = gbn.cpp; path = ../../agautam2/src/gbn.cpp; sourceTree = "<group>"; };
+		C7D98A9C1C9D1C2E000DA74D /* simulator.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = simulator.cpp; path = ../../agautam2/src/simulator.cpp; sourceTree = "<group>"; };
+		C7D98A9D1C9D1C2E000DA74D /* sr.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = sr.cpp; path = ../../agautam2/src/sr.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -57,7 +64,11 @@
 		C7D98A911C9D1C18000DA74D /* RDT */ = {
 			isa = PBXGroup;
 			children = (
-				C7D98A921C9D1C18000DA74D /* main.cpp */,
+				C7D98A991C9D1C2E000DA74D /* simulator.h */,
+				C7D98A9A1C9D1C2E000DA74D /* abt.cpp */,
+				C7D98A9B1C9D1C2E000DA74D /* gbn.cpp */,
+				C7D98A9C1C9D1C2E000DA74D /* simulator.cpp */,
+				C7D98A9D1C9D1C2E000DA74D /* sr.cpp */,
 			);
 			path = RDT;
 			sourceTree = "<group>";
@@ -118,7 +129,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C7D98A931C9D1C18000DA74D /* main.cpp in Sources */,
+				C7D98AA11C9D1C2E000DA74D /* sr.cpp in Sources */,
+				C7D98A9F1C9D1C2E000DA74D /* gbn.cpp in Sources */,
+				C7D98AA01C9D1C2E000DA74D /* simulator.cpp in Sources */,
+				C7D98A9E1C9D1C2E000DA74D /* abt.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
