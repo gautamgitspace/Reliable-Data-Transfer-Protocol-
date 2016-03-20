@@ -116,9 +116,6 @@ void insertevent(struct event *p)
 }
 
 
-
-
-
 /********************* EVENT HANDLINE ROUTINES *******/
 /*  The next set of routines handle the event list   */
 /*****************************************************/

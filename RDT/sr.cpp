@@ -1,4 +1,11 @@
-#include "simulator.h"
+//  Code to implement a Selective Repeat protocol on L4
+//  MBP111.0138.B16
+//  System Serial: C02P4SP9G3QH
+//  sr.cpp
+//  Created by Abhishek Gautam on 3/20/2016
+//  agautam2@buffalo.edu
+//  University at Buffalo, The State University of New York.
+//  Copyright © 2016 Gautam. All rights reserved.
 
 /* ******************************************************************
  ALTERNATING BIT AND GO-BACK-N NETWORK EMULATOR: VERSION 1.1  J.F.Kurose
@@ -15,6 +22,7 @@
 
 /********* STUDENTS WRITE THE NEXT SEVEN ROUTINES *********/
 
+#include "simulator.h"
 /* called from layer 5, passed the data to be sent to other side */
 void A_output(struct msg message)
 {
