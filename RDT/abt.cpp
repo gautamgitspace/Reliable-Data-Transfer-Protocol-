@@ -177,7 +177,7 @@ void A_input(struct pkt pack)
 void A_timerinterrupt()
 {
     //when A's timer expires what happens?
-    printf("--------------------------In A_timerinterrupt-------------------------\n");
+    printf("--------------------------In A_timerinterrupt---------------------------\n");
     printf("Timer Expired. . . Retransmitting now!\n");
     readyToSend=true;
     isRetransmission=true;
