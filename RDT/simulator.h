@@ -22,6 +22,7 @@ struct pkt
    char payload[20];
 };
 
+
 /* Implementation framework interface */
 void A_output(struct msg message);
 void B_output(struct msg message);
