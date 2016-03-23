@@ -658,8 +658,8 @@ terminate:
     printf("[PA2]%d packets received at the Transport layer of Receiver B[/PA2]\n", B_transport);
     printf("[PA2]%d packets received at the Application layer of Receiver B[/PA2]\n", B_application);
     printf("# %d packets were DROPPED as sender was not ready\n",droppedPackets);                      //added by agautam2
-    printf("# %d packets were RETRANSMITTED\n",retransmittedPackets);          //added by agautam2
-    printf("# %d packets were LOSSY ACKS\n",lossyAcks);                        //added by agautam2
+    printf("# %d packets were RETRANSMITTED\n",retransmittedPackets);          //added by agautam2 REMOVE LATER
+    printf("# %d packets were LOSSY ACKS\n",lossyAcks);                        //added by agautam2 REMOVE LATER
     printf("[PA2]Total time: %f time units[/PA2]\n", time_local);
     printf("[PA2]Throughput: %f packets/time units[/PA2]\n", B_application/time_local);
     return 0;
