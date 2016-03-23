@@ -43,6 +43,9 @@ int B_transport = 0;
 
 int sequenceNumberA;
 int sequenceNumberB;
+int droppedPackets=0;
+int lossyAcks=0;
+int retransmittedPackets=0;
 float timerIncrement;
 bool isRetransmission;
 bool readyToSend;
@@ -54,23 +57,21 @@ struct pkt ackFromB;
 int calculatePayloadChecksum(struct pkt packPayload)            //calculates char by char checksum for payload
 {
 
-    int payloadCheksum = 0;
+    int payloadChecksum = 0;
     for(int i=0;i<(sizeof(packPayload.payload));i++)
     {
-        payloadCheksum=payloadCheksum+packPayload.payload[i];
+        payloadChecksum=payloadChecksum+packPayload.payload[i];
     }
-    return payloadCheksum;
+    return payloadChecksum;
 }
 
 int calculateChecksum(struct pkt pack)                        //adds payload checksum value to ack and seq => consolidates checksum
 {
     int initChecksum=0;
-    initChecksum = (pack.checksum+pack.acknum+pack.seqnum+calculatePayloadChecksum(pack))*2;
+    initChecksum = (pack.acknum+pack.seqnum+calculatePayloadChecksum(pack))*2;
     return initChecksum;
     
 }
-
-//separate checksum calculator for ack packets?
 
 int setToZero(int a)
 {
@@ -78,27 +79,27 @@ int setToZero(int a)
     return a;
 }
 
-int isCorrupt(struct pkt packet)                                //checks if the packet is corrupt on the basis of checksum
+int isCorrupt(int a, int b)                                //checks if the packet is corrupt on the basis of checksum
 {
-    int checksumValue=0;
-    checksumValue=calculateChecksum(packet);
-    if (checksumValue==0)
+    if(a==b)
     {
-        return 0;
+        //printf("@@TEST - GOOD PACKET@@\n");
+        return 1;   //packet is not corrupt
     }
     else
     {
-        return 1;
+        //printf("@@TEST - BAD PACKET@@\n");
+        return 0;   //packet is corrupt
     }
 }
 
 
 void A_output(struct msg message)
 {
-    printf("---------------------------In A_output----------------------------------\n");
+    //printf("---------------------------In A_output----------------------------------\n");
     if(readyToSend==true && isRetransmission==false)            //CASE 1 - Normal Transmission Code Follows
     {
-        printf("A is ready to send and will push new data down to L5 now\n");
+        //printf("A is ready to send and will push new data down to L5 now\n");
         struct pkt pack;
         setToZero(pack.acknum);
         pack.seqnum=sequenceNumberA;
@@ -107,16 +108,16 @@ void A_output(struct msg message)
         //now that A is about to send it's readyToSend flag will remain false until it receives an ACK
         readyToSend=false;
         tolayer3(0, pack);                                      //send to L3
-        printf("Data pushed down to L3\n");
+        //printf("Data pushed down to L3\n");
         starttimer(0, timerIncrement);                          //start keepalive
-        printf("Timer started\n");
+        //printf("Timer started\n");
         storeLastMsg=message;                                   //store the last sent message (needed in case of retransmission)
-        printf("Message stored for later use\n");
+        //printf("Message stored for later use\n");
     }
     
     else if(readyToSend==true && isRetransmission==true)
     {
-        printf("A is ready to send and will push retransmitted data down to L5 now\n");
+        //printf("A is ready to send and will push retransmitted data down to L5 now\n");
         struct pkt pack;
         setToZero(pack.acknum);
         pack.seqnum=sequenceNumberA;
@@ -124,34 +125,51 @@ void A_output(struct msg message)
         pack.checksum=calculateChecksum(pack);
         //now that is about to send it's readyToSend flag will remain false until it receives an ACK
         readyToSend=false;
-        printf("Data pushed down to L3\n");
+        //printf("Data pushed down to L3\n");
         tolayer3(0, pack);                                      //send to L3
+        retransmittedPackets++;
         starttimer(0, timerIncrement);                          //start keepalive
-        printf("Timer started\n");
+        //printf("Timer started\n");
         storeLastMsg=message;
-        printf("Message stored for later use\n");
+        //printf("Message stored for later use\n");
     }
     else if(readyToSend==false)
     {
-        printf("Packet Dropped\n");
-        //do nothing and drop the packet?
+        //printf("Packet Dropped\n");
+        droppedPackets++;
     }
+    
 }
 
 /* called from layer 3, when a packet arrives for layer 4 */
 void A_input(struct pkt pack)
 {
-    printf("---------------------------In A_input----------------------------------\n");
+    //printf("---------------------------In A_input----------------------------------\n");
     if(pack.acknum==sequenceNumberA)
     {
-        //printf("TEST 1\n");
-        if(isCorrupt(pack)==1)
+        int payloadChecksum=0;
+        int verifyChecksum=0;
+        verifyChecksum=pack.acknum+pack.seqnum;
+        
+        for(int i=0;i<(sizeof(pack.payload));i++)
+        {
+            payloadChecksum=payloadChecksum+pack.payload[i];
+        }
+        verifyChecksum=(verifyChecksum+payloadChecksum)*2;
+        //printf("@@@@@@@@@@@@@@@ Sent from B : %d\n",pack.checksum);
+        //printf("@@@@@@@@@@@@@@@ Received at A : %d\n",verifyChecksum);
+        
+        
+        int goodOrBad = isCorrupt(pack.checksum, verifyChecksum);
+        
+        
+        if(goodOrBad==1)
         {
             //now that ACK from B is received, A is ready to send again
-            printf("ACK from B is received. A is ready to send again\n");
+            //printf("ACK from B is received. A is ready to send again\n");
             readyToSend=true;
             stoptimer(0);
-                printf("Timer has been stopped\n");
+            //printf("Timer has been stopped\n");
             //A's sequence number will flip (ABT)
             if(isRetransmission==true)
             {
@@ -169,7 +187,8 @@ void A_input(struct pkt pack)
     }
     else
     {
-        printf("Lossy Ack\n");
+        //printf("Lossy Ack\n");
+        lossyAcks++;
     }
 }
 
@@ -177,12 +196,12 @@ void A_input(struct pkt pack)
 void A_timerinterrupt()
 {
     //when A's timer expires what happens?
-    printf("--------------------------In A_timerinterrupt---------------------------\n");
-    printf("Timer Expired. . . Retransmitting now!\n");
+    //printf("--------------------------In A_timerinterrupt---------------------------\n");
+    //printf("Timer Expired. . . Retransmitting now!\n");
     readyToSend=true;
     isRetransmission=true;
     A_output(storeLastMsg);
-    printf("Packed Retransmitted\n");
+    //printf("Packed Retransmitted\n");
 }  
 
 /* the following routine will be called once (only) before any other */
@@ -190,9 +209,9 @@ void A_timerinterrupt()
 void A_init()
 {
     
-    printf("Initializing A. . .\n");
+    //printf("Initializing A. . .\n");
     sequenceNumberA=0;
-    timerIncrement=9.0;
+    timerIncrement=8.0;
     readyToSend=true;
     isRetransmission=false;
     
@@ -203,40 +222,55 @@ void A_init()
 /* called from layer 3, when a packet arrives for layer 4 at B*/
 void B_input(struct pkt pack)
 {
-    printf("---------------------------In B_input----------------------------------\n");
+    //printf("---------------------------In B_input----------------------------------\n");
 
     
-    printf("Data received at L4 at B\n");
+    //printf("Data received at L4 at B\n");
     if(pack.seqnum==sequenceNumberB)
     {
-        if(isCorrupt(pack)==1)
-        {
-            tolayer5(1, pack.payload);
-            printf("Data received at L5 at B\n");
-            ackFromB.seqnum=sequenceNumberB;
-            ackFromB.acknum=sequenceNumberB;
-            strncpy(ackFromB.payload, "acknowledgement",sizeof(ackFromB.payload));
-            setToZero(ackFromB.checksum);
-            ackFromB.checksum=calculateChecksum(ackFromB);
-            storeLastAck=ackFromB;
-            printf("ACK from B ready to be pushed down to L3. On its way to A. . .\n");
-            tolayer3(1, ackFromB);
-            printf("ACK from B sent\n");
-            if(sequenceNumberB==0)
+            int verifyChecksum=0;
+            int payloadChecksum=0;
+            verifyChecksum=pack.seqnum+pack.acknum;
+        
+            for(int i=0;i<(sizeof(pack.payload));i++)
             {
-                sequenceNumberB=1;
+                payloadChecksum=payloadChecksum+pack.payload[i];
             }
-            else
+            verifyChecksum=(verifyChecksum+payloadChecksum)*2;
+            //printf("@@@@@@@@@@@@@@@ Sent from A : %d\n",pack.checksum);
+            //printf("@@@@@@@@@@@@@@@ Received at B : %d\n",verifyChecksum);
+        
+            int goodOrBad=isCorrupt(pack.checksum,verifyChecksum);         //check if received packet is corrupt before pusing it to the application layer
+            if (goodOrBad==1)
             {
-                sequenceNumberB=0;
+                    tolayer5(1, pack.payload);
+                    //printf("Data received at L5 at B\n");
+                    ackFromB.seqnum=sequenceNumberB;
+                    ackFromB.acknum=sequenceNumberB;
+                    strncpy(ackFromB.payload, "acknowledgement",sizeof(ackFromB.payload));
+                    setToZero(ackFromB.checksum);
+                    ackFromB.checksum=calculateChecksum(ackFromB);
+                    //printf("@@@@@@@@@@@@@@@ Ack Checksum Sent from B : %d\n",ackFromB.checksum);
+                    storeLastAck=ackFromB;
+                    //printf("ACK from B ready to be pushed down to L3. On its way to A. . .\n");
+                    tolayer3(1, ackFromB);
+                    //printf("ACK from B sent\n");
+                    if(sequenceNumberB==0)
+                    {
+                        sequenceNumberB=1;
+                    }
+                    else
+                    {
+                        sequenceNumberB=0;
+                    }
             }
-        }
+        
     }
     else
     {
             //if the packet is out of order or corrupt send ack for previous
             tolayer3(1, storeLastAck);
-            printf("last ack sent\n");
+            //printf("last ack sent\n");
     }
    // printf("Exiting B_input\n");
     
@@ -247,7 +281,7 @@ void B_input(struct pkt pack)
 void B_init()
 {
     //printf("In B_init\n");
-    printf("Initializing B. . .\n");
+    //printf("Initializing B. . .\n");
     sequenceNumberB=0;
 }
 
@@ -623,6 +657,9 @@ terminate:
     printf("[PA2]%d packets sent from the Transport Layer of Sender A[/PA2]\n", A_transport);
     printf("[PA2]%d packets received at the Transport layer of Receiver B[/PA2]\n", B_transport);
     printf("[PA2]%d packets received at the Application layer of Receiver B[/PA2]\n", B_application);
+    printf("# %d packets were DROPPED as sender was not ready\n",droppedPackets);                      //added by agautam2
+    printf("# %d packets were RETRANSMITTED\n",retransmittedPackets);          //added by agautam2
+    printf("# %d packets were LOSSY ACKS\n",lossyAcks);                        //added by agautam2
     printf("[PA2]Total time: %f time units[/PA2]\n", time_local);
     printf("[PA2]Throughput: %f packets/time units[/PA2]\n", B_application/time_local);
     return 0;
