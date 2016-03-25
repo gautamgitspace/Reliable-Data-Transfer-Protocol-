@@ -41,6 +41,7 @@ int A_transport = 0;
 int B_application = 0;
 int B_transport = 0;
 
+/*Define variables specific to the ABT protocol in this space*/
 int sequenceNumberA;
 int sequenceNumberB;
 int droppedPackets=0;
@@ -52,6 +53,7 @@ bool readyToSend;
 struct msg storeLastMsg;
 struct pkt storeLastAck;
 struct pkt ackFromB;
+/*Define variables specific to the ABT protocol in this space*/
 
 
 int calculatePayloadChecksum(struct pkt packPayload)            //calculates char by char checksum for payload
@@ -103,6 +105,7 @@ void A_output(struct msg message)
         struct pkt pack;
         setToZero(pack.acknum);
         pack.seqnum=sequenceNumberA;
+        /*Importance of use of strncpy understood from - http://stackoverflow.com/questions/1258550/why-should-you-use-strncpy-instead-of-strcpy */
         strncpy(pack.payload, message.data,sizeof(pack.payload));
         pack.checksum=calculateChecksum(pack);
         //now that A is about to send it's readyToSend flag will remain false until it receives an ACK
@@ -142,25 +145,25 @@ void A_output(struct msg message)
 }
 
 /* called from layer 3, when a packet arrives for layer 4 */
-void A_input(struct pkt pack)
+void A_input(struct pkt packet)
 {
     //printf("---------------------------In A_input----------------------------------\n");
-    if(pack.acknum==sequenceNumberA)
+    if(packet.acknum==sequenceNumberA)
     {
         int payloadChecksum=0;
         int verifyChecksum=0;
-        verifyChecksum=pack.acknum+pack.seqnum;
+        verifyChecksum=packet.acknum+packet.seqnum;
         
-        for(int i=0;i<(sizeof(pack.payload));i++)
+        for(int i=0;i<(sizeof(packet.payload));i++)
         {
-            payloadChecksum=payloadChecksum+pack.payload[i];
+            payloadChecksum=payloadChecksum+packet.payload[i];
         }
         verifyChecksum=(verifyChecksum+payloadChecksum)*2;
         //printf("@@@@@@@@@@@@@@@ Sent from B : %d\n",pack.checksum);
         //printf("@@@@@@@@@@@@@@@ Received at A : %d\n",verifyChecksum);
         
         
-        int goodOrBad = isCorrupt(pack.checksum, verifyChecksum);
+        int goodOrBad = isCorrupt(packet.checksum, verifyChecksum);
         
         
         if(goodOrBad==1)
@@ -220,30 +223,30 @@ void A_init()
 /* Note that with simplex transfer from a-to-B, there is no B_output() */
 
 /* called from layer 3, when a packet arrives for layer 4 at B*/
-void B_input(struct pkt pack)
+void B_input(struct pkt packet)
 {
     //printf("---------------------------In B_input----------------------------------\n");
 
     
     //printf("Data received at L4 at B\n");
-    if(pack.seqnum==sequenceNumberB)
+    if(packet.seqnum==sequenceNumberB)
     {
             int verifyChecksum=0;
             int payloadChecksum=0;
-            verifyChecksum=pack.seqnum+pack.acknum;
+            verifyChecksum=packet.seqnum+packet.acknum;
         
-            for(int i=0;i<(sizeof(pack.payload));i++)
+            for(int i=0;i<(sizeof(packet.payload));i++)
             {
-                payloadChecksum=payloadChecksum+pack.payload[i];
+                payloadChecksum=payloadChecksum+packet.payload[i];
             }
             verifyChecksum=(verifyChecksum+payloadChecksum)*2;
             //printf("@@@@@@@@@@@@@@@ Sent from A : %d\n",pack.checksum);
             //printf("@@@@@@@@@@@@@@@ Received at B : %d\n",verifyChecksum);
         
-            int goodOrBad=isCorrupt(pack.checksum,verifyChecksum);         //check if received packet is corrupt before pusing it to the application layer
+            int goodOrBad=isCorrupt(packet.checksum,verifyChecksum);         //check if received packet is corrupt before pusing it to the application layer
             if (goodOrBad==1)
             {
-                    tolayer5(1, pack.payload);
+                    tolayer5(1, packet.payload);
                     //printf("Data received at L5 at B\n");
                     ackFromB.seqnum=sequenceNumberB;
                     ackFromB.acknum=sequenceNumberB;
