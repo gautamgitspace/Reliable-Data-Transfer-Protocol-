@@ -66,9 +66,9 @@
 			children = (
 				C75A14AB1C9D25AF0082589F /* abt.cpp */,
 				C75A14AC1C9D25AF0082589F /* gbn.cpp */,
+				C75A14AF1C9D25AF0082589F /* sr.cpp */,
 				C75A14AD1C9D25AF0082589F /* simulator.cpp */,
 				C75A14AE1C9D25AF0082589F /* simulator.h */,
-				C75A14AF1C9D25AF0082589F /* sr.cpp */,
 			);
 			path = RDT;
 			sourceTree = "<group>";

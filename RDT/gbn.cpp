@@ -38,22 +38,27 @@ int A_transport = 0;
 int B_application = 0;
 int B_transport = 0;
 
-/*Define variables specific to the GBN protocol in this space*/
+/*Define variables specific to the GBN protocol below this space*/
+
+/*Basic variables pertaining to GBN*/
 float timerIncrement;
 int windowSize;
+int slidingWindow;
 int senderBuffer=5000;
 int nextSequenceNumberA;
 int base;
 int seeker;
 int sequenceNumberB;
+/*variables for extra stats information*/
 int packetWithInvalidSeqNum;
 int ackWithInvalidSeqNum;
 int corruptPacket;
 int corruptAck;
+/*extra struct types used*/
 struct msg storeLastMsg;
 struct pkt storeLastAck;
 struct pkt ackFromB;
-/*Define variables specific to the GBN protocol in this space*/
+/*Define variables specific to the GBN protocol above this space*/
 
 
 /*How to add more fields to existing struct without 
@@ -66,20 +71,22 @@ struct pkt ackFromB;
 struct packInfo
 {
     pkt pack;
-    bool usable;
+    bool partOfBuffer;
     bool unsent;
 };
 
+/* struct memory allocation and array handling - http://www.programiz.com/c-programming/c-structures-pointers*/
 struct packInfo *ptr= (struct packInfo*)malloc(senderBuffer*sizeof(struct packInfo));
-
 
 int calculatePayloadChecksum(struct pkt packPayload)          //calculates char by char checksum for payload
 {
     
     int payloadChecksum = 0;
-    for(int i=0;i<(sizeof(packPayload.payload));i++)
+    int i=0;
+    while(i<(sizeof(packPayload.payload)))
     {
         payloadChecksum=payloadChecksum+packPayload.payload[i];
+        i++;
     }
     return payloadChecksum;
 }
@@ -89,14 +96,26 @@ int calculateChecksum(struct pkt pack)                        //adds payload che
     int initChecksum=0;
     initChecksum = (pack.acknum+pack.seqnum+calculatePayloadChecksum(pack))*2;
     return initChecksum;
-    
 }
 
+/*various setters*/
 int setToZero(int a)
 {
     a=0;
     return a;
 }
+bool setToFalse(bool a)
+{
+    a=false;
+    return a;
+}
+
+bool setToTrue(bool a)
+{
+    a=true;
+    return a;
+}
+/*various setters*/
 
 int isCorrupt(int a, int b)                                //checks if the packet is corrupt on the basis of checksum
 {
@@ -112,66 +131,90 @@ int isCorrupt(int a, int b)                                //checks if the packe
     }
 }
 
+/*This will store messages in buffer as they arrive and set their attributes*/
+void storeAndPacketize(int seek, struct pkt packet, struct msg message)
+{
+    /*Importance of use of strncpy understood from - 
+     http://stackoverflow.com/questions/1258550/why-should-you-use-strncpy-instead-of-strcpy */
+    /*use strncpy. strcpy gives seg fault*/
+    
+    
+    
+    /*How to add more fields to existing struct without
+     modifying it ? (no alterations allowed to simulator.h and simulator.cpp),
+     logic read & understood from -
+     https://bytes.com/topic/c/answers/435918-add-new-member-struct
+     AND How to use nested structures, read & understood from -
+     http://www.c4learn.com/c-programming/c-nested-structure/ */
+
+    
+    strncpy(packet.payload, message.data, sizeof(packet.payload));
+    packet.checksum=calculateChecksum(packet);
+    //printf("######## checksum value sent from A is: %d\n", packet.checksum);
+    
+    /*accessing struct members - http://www.c4learn.com/c-programming/c-accessing-element-in-structure-array/ and C++ the complete reference textbook*/
+    
+    ptr[seek].partOfBuffer=setToTrue(ptr[seek].partOfBuffer);
+    ptr[seek].pack=packet;
+    ptr[seek].unsent=setToTrue(ptr[seek].unsent);
+}
+
 /* called from layer 5, passed the data to be sent to other side */
 void A_output(struct msg message)
 {
-    //printf("--------------------Inside A_output---------------------\n");
+    printf("-------------------------------%d------------------------------\n",seeker);
     pkt pack;
     setToZero(pack.acknum);
     setToZero(pack.checksum);
+    
+    /*seeker will allow buffering. keep assigning seqnum to packets as they arrive*/
     pack.seqnum=seeker;
-    /*Importance of use of strncpy understood from - http://stackoverflow.com/questions/1258550/why-should-you-use-strncpy-instead-of-strcpy */
+    /*call to buffer packets*/
+    storeAndPacketize(seeker, pack, message);
+    slidingWindow=base+windowSize;
     
-    strncpy(pack.payload, message.data, sizeof(pack.payload));
-    pack.checksum=calculateChecksum(pack);
-    
-    //Now set packets into the sender buffer
-    ptr[seeker].pack=pack;
-    ptr[seeker].usable=true;
-    ptr[seeker].unsent=true;
-    //printf("Window Size is: %d\n", windowSize);
-    //printf("Next seq num is : %d\n",nextSequenceNumberA);
-    //printf("base is: %d\n",base);
-    //printf("seeker is: %d\n",seeker);
-    
-    if(nextSequenceNumberA < (base+windowSize-1))
+    if(nextSequenceNumberA > (slidingWindow))
     {
-        if(ptr[nextSequenceNumberA].unsent==true && ptr[nextSequenceNumberA].usable==true)
+        /*In this case value of -t is small and window size is small.
+         L7 will push data at rate faster than the transmission. In such a case,
+         keep incrementing the buffer position so that seq num is assigned to the
+         stored message*/
+        
+        seeker++;
+    }
+    else
+    {
+        if(ptr[nextSequenceNumberA].unsent==true)
         {
+           if(ptr[nextSequenceNumberA].partOfBuffer==true)
+           {
             tolayer3(0, ptr[nextSequenceNumberA].pack);
-            //printf("PUSHED DOWN TO L3\n");
-            ptr[nextSequenceNumberA].unsent=false;
+            //printf("Pushed to layer3\n");
+            ptr[nextSequenceNumberA].unsent=setToFalse(ptr[nextSequenceNumberA].unsent);
+           }
         }
         if(base==nextSequenceNumberA)
         {
             starttimer(0, timerIncrement);
-            //printf("TIMER STARTED\n");
         }
         seeker++;
         nextSequenceNumberA++;
     }
-    else
-    {
-        /*window will be overflooded if control reaches here*/
-
-        //printf("window size is: %d\n",windowSize);
-        seeker++;
-        
-    }
-    //printf("--------------------Exiting A_output---------------------\n");
+    
 }
 
 /* called from layer 3, when a packet arrives for layer 4 */
 void A_input(struct pkt packet)
 {
-    //printf("--------------------Inside A_input---------------------\n");
     int payloadChecksum=0;
     int verifyChecksum=0;
     verifyChecksum=packet.acknum+packet.seqnum;
     
-    for(int i=0;i<(sizeof(packet.payload));i++)
+    int i=0;
+    while(i<(sizeof(packet.payload)))
     {
         payloadChecksum=payloadChecksum+packet.payload[i];
+        i++;
     }
     verifyChecksum=(verifyChecksum+payloadChecksum)*2;
     //printf("@@@@@@@@@@@@@@@ Sent from B : %d\n",pack.checksum);
@@ -180,110 +223,118 @@ void A_input(struct pkt packet)
     
     int goodOrBad = isCorrupt(packet.checksum, verifyChecksum);
     
-    if(packet.acknum>=base)
-    {
+    
+        //printf("valid ack. proceeding to checksum check\n");
         if(goodOrBad==1)
         {
+            if(packet.acknum>=base)
+            {
+            //printf("non corrupt ack. moving forward\n");
             base=packet.acknum+1;
-            //printf("ACK RCVD MOVING WINDOW\n");
+            //printf("ACK RCVD MOVING WINDOW (BASE++)\n");
+            
+            /*TIMING LOGIC TAKEN FROM FSM OF GBN (ROSS KUROSE)*/
             if(base<nextSequenceNumberA)
             {
-                //printf("Stopping Timer. . .\n Starting Timer. . .\n");
-                stoptimer(0);
-                starttimer(0, timerIncrement);
+                stoptimer(0);   //stop for packets for which ack is received
+                starttimer(0, timerIncrement); //start for next packets
             }
             else if (base==nextSequenceNumberA)
             {
-                 /*all packets have been sent at this time*/
+                /*case when to the point ack rcvd*/
                 stoptimer(0);
-                //printf("TIMER STOPPED\n");
             }
             
             int i=nextSequenceNumberA;
-            while (i<(base + windowSize-1))
+            slidingWindow=base+windowSize;
+            
+            while (i<(slidingWindow))
             {
-                if(ptr[i].usable==true && ptr[i].unsent==true)
+                if(ptr[i].partOfBuffer==true)
                 {
+                    if(ptr[i].unsent==true)
+                    {
+                
                     tolayer3(0, ptr[i].pack);
-                    ptr[i].unsent=false;
+                    ptr[i].unsent=setToFalse(ptr[i].unsent);
                     if(base==i)
                     {
                         starttimer(0, timerIncrement);
                     }
                     nextSequenceNumberA++;
+                
+                    }
+                
                 }
-                i++;
+                i++;//increment while loop
             }
-        }
-    }
-    else
-    {
-        if(goodOrBad==0)
-        {
-            corruptAck++;
+            }
+            else
+            {
+                ackWithInvalidSeqNum++;
+                //printf("ack with invalid seq rcvd\n");
+            }
         }
         else
         {
-            ackWithInvalidSeqNum++;
+            corruptAck++;
+            //printf("corrupt ack rcvd\n");
         }
-    }
+        
 }
 
 /* called when A's timer goes off */
 void A_timerinterrupt()
 {
     /* What happens when a timeout occurs? => N packets sent again! */
-    //printf("--------------------Inside A_timerinterrupt---------------------\n");
+    
     int j=base;
-    while(j<(base+windowSize) && ptr[j].unsent==false && ptr[j].usable==true)
-    
-    //for(base;base<(base+windowSize-1) && ptr[base].unsent==false && ptr[base].usable==true;base++)
+    slidingWindow=base+windowSize;
+    while(j<(slidingWindow))
     {
-        tolayer3(0, ptr[j].pack);
+        if(ptr[j].partOfBuffer==true)
+        {
+            if(ptr[j].unsent==false)
+            {
+                tolayer3(0,ptr[j].pack);
+            }
+        }
         j++;
-        //printf("RETRANSMITTED\n");
     }
-    
-        starttimer(0, timerIncrement);
+    starttimer(0, timerIncrement);
    
-    //printf("--------------------Exiting A_timerinterrupt---------------------\n");
 }  
 
 /* the following routine will be called once (only) before any other */
 /* entity A routines are called. You can use it to do any initialization */
 void A_init()
 {
-    //printf("--------------------Inside A_init---------------------\n");
-    seeker=1;
-    nextSequenceNumberA=1;
-    base=1;
+    
     windowSize=getwinsize();
+    //timerIncrement=30.0;
     //increasing timerIncrement with increasing window size
+    
     switch (windowSize)
     {
-        case 10:
-            timerIncrement=20.0;
-            break;
-        case 50:
-            timerIncrement=22.0;
-            //printf("switch working\n");
-            break;
-        case 100:
-            timerIncrement=24.0;
-            break;
         case 200:
-            timerIncrement=26.0;
-            break;
-        case 500:
             timerIncrement=28.0;
             break;
+        case 500:
+            timerIncrement=30.0;
+            break;
         default:
+            timerIncrement=22.0;
             break;
     }
+    
     packetWithInvalidSeqNum=0;
+    seeker=1;
     corruptPacket=0;
+    nextSequenceNumberA=1;
     ackWithInvalidSeqNum=0;
+    base=1;
     corruptAck=0;
+    printf("timerincrement selected is: %f\n",timerIncrement);
     //printf("--------------------Exiting A_init---------------------\n");
 }
 
@@ -292,19 +343,19 @@ void A_init()
 /* called from layer 3, when a packet arrives for layer 4 at B*/
 void B_input(struct pkt packet)
 {
-    //printf("--------------------Inside B_input---------------------\n");
     //printf("B sequence number is: %d\n", sequenceNumberB);
     //printf("packet seqnum is: %d\n", packet.seqnum);
-    if(packet.seqnum==sequenceNumberB)
-    {
+    
         //printf("inside B_input ack and seq condition passed\n");
         int verifyChecksum=0;
         int payloadChecksum=0;
         verifyChecksum=packet.seqnum+packet.acknum;
         
-        for(int i=0;i<(sizeof(packet.payload));i++)
+        int i=0;
+        while(i<(sizeof(packet.payload)))
         {
             payloadChecksum=payloadChecksum+packet.payload[i];
+            i++;
         }
         verifyChecksum=(verifyChecksum+payloadChecksum)*2;
         //printf("@@@@@@@@@@@@@@@ Sent from A : %d\n",pack.checksum);
@@ -313,6 +364,8 @@ void B_input(struct pkt packet)
         int goodOrBad=isCorrupt(packet.checksum,verifyChecksum); //check if received packet is corrupt before pusing it to the application layer
         if (goodOrBad==1)
         {
+            if(packet.seqnum==sequenceNumberB)
+            {
             tolayer5(1, packet.payload);
             //printf("Data received at L5 at B\n");
             ackFromB.seqnum=sequenceNumberB;
@@ -326,20 +379,19 @@ void B_input(struct pkt packet)
             tolayer3(1, ackFromB);
             //printf("ACK from B sent\n");
             sequenceNumberB++;
+            }
+            else
+            {
+             tolayer3(1, storeLastAck);
+             packetWithInvalidSeqNum++;
+            }
         }
         else
         {
             tolayer3(1, storeLastAck);
-            if (goodOrBad==1)
-            {
-                packetWithInvalidSeqNum++;
-            }
-            else
-            {
-                corruptPacket++;
-            }
+            corruptPacket++;
         }
-    }
+    
     //printf("--------------------Exiting B_input---------------------\n");
 }
 
@@ -856,7 +908,7 @@ void tolayer3(int AorB,struct pkt packet)
     if (jimsrand() < lossprob)  {
         nlost++;
         if (TRACE>0)
-            printf("          TOLAYER3: packet being lost\n");
+            printf("          TOLAYER3: packet being lost\n");        //added by agautam2 REMOVE LATER
         return;
     }
     
@@ -895,7 +947,8 @@ void tolayer3(int AorB,struct pkt packet)
     
     
     /* simulate corruption: */
-    if (jimsrand() < corruptprob)  {
+    if (jimsrand() < corruptprob)
+    {
         ncorrupt++;
         if ( (x = jimsrand()) < .75)
             mypktptr->payload[0]='Z';   /* corrupt payload */
@@ -904,7 +957,8 @@ void tolayer3(int AorB,struct pkt packet)
         else
             mypktptr->acknum = 999999;
         if (TRACE>0)
-            printf("          TOLAYER3: packet being corrupted\n");
+        
+            printf("          TOLAYER3: packet being corrupted\n");       //Added by agautam2 REMOVE LATER
     }
     
     if (TRACE>2)
